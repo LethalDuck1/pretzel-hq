@@ -1,0 +1,7 @@
+{
+  "name": "pretzel-hq",
+  "private": true,
+  "dependencies": {
+    "@netlify/blobs": "^6.2.0"
+  }
+}
