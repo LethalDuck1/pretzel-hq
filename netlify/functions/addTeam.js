@@ -1,0 +1,29 @@
+const { json, isAdmin, loadState, saveState, mkId, pushLog } = require("./_state");
+
+exports.handler = async (event) => {
+  try{
+    if(!isAdmin(event)) return json(401, { error:"Unauthorized" });
+
+    const body = JSON.parse(event.body || "{}");
+    const name = String(body.name || "").trim();
+    if(!name) return json(400, { error:"Team name required" });
+
+    const state = await loadState();
+    state.teams = Array.isArray(state.teams) ? state.teams : [];
+
+    if(state.teams.some(t => String(t.name).toLowerCase() === name.toLowerCase())){
+      return json(400, { error:"Team already exists" });
+    }
+
+    const team = { id: mkId("team"), name };
+    state.teams.push(team);
+
+    pushLog(state, `Team created: ${name}`);
+    await saveState(state);
+
+    return json(200, { ok:true, team });
+  }catch(e){
+    console.error("addTeam failed:", e);
+    return json(500, { error:"Failed to add team", detail: e?.message || "unknown" });
+  }
+};
