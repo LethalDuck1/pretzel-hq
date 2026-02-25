@@ -1,0 +1,15 @@
+const { json } = require("./_state");
+const { upsertSub } = require("./_push");
+
+exports.handler = async (event) => {
+  try{
+    const body = JSON.parse(event.body || "{}");
+    const subscription = body.subscription;
+    const tags = Array.isArray(body.tags) ? body.tags : ["all"];
+    const clean = await upsertSub(subscription, tags);
+    return json(200, { ok:true, endpoint: clean.endpoint, tags: clean.tags });
+  }catch(e){
+    console.error("subscribePush failed:", e);
+    return json(400, { error:"Failed to subscribe", detail: e?.message || "unknown" });
+  }
+};
