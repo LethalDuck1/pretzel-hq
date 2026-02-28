@@ -1,0 +1,2 @@
+const {json}=require("./_state");const {login,ensureDefaultUser}=require("./_adminAuth");
+exports.handler=async(event)=>{try{await ensureDefaultUser();const b=JSON.parse(event.body||"{}");const u=String(b.username||"").trim();const p=String(b.password||"");if(!u||!p)return json(400,{error:"Missing"});const t=await login(u,p);if(!t)return json(401,{error:"Bad login"});return json(200,{ok:true,token:t});}catch(e){console.error("adminLogin failed:",e);return json(500,{error:"Failed",detail:e?.message||"unknown"});}};
