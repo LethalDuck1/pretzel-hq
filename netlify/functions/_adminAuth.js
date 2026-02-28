@@ -1,0 +1,11 @@
+const crypto=require("crypto");const {getStore}=require("@netlify/blobs");const STORE="pretzel-hq";const KEY="admin_auth_v1";
+function store(){const siteID=process.env.NETLIFY_SITE_ID||process.env.BLOBS_SITE_ID||"";const token=process.env.NETLIFY_AUTH_TOKEN||process.env.BLOBS_TOKEN||"";if(siteID&&token){try{return getStore({name:STORE,siteID,token,consistency:"strong"});}catch{return getStore({name:STORE,siteID,token});}}try{return getStore({name:STORE,consistency:"strong"});}catch{return getStore(STORE);}}
+function sha256(s){return crypto.createHash("sha256").update(String(s)).digest("hex");}
+function randToken(){return crypto.randomBytes(24).toString("base64url");}
+async function load(){const st=store();const raw=await st.get(KEY,{type:"json"});return raw||{users:{},sessions:{}};}
+async function save(obj){const st=store();if(typeof st.setJSON==="function")await st.setJSON(KEY,obj);else await st.set(KEY,JSON.stringify(obj),{contentType:"application/json"});return obj;}
+async function verifySession(token){const data=await load();const h=sha256(token);const s=data.sessions&&data.sessions[h];if(!s)return null;const now=Date.now();if(s.exp&&now>s.exp){delete data.sessions[h];await save(data);return null;}return s;}
+async function createSession(user){const data=await load();const t=randToken();const h=sha256(t);data.sessions=data.sessions||{};data.sessions[h]={user,ts:new Date().toISOString(),exp:Date.now()+1000*60*60*24*14};await save(data);return t;}
+async function ensureDefaultUser(){const u=process.env.ADMIN_USER||"admin";const p=process.env.ADMIN_PASSWORD||"";if(!p)return;const data=await load();data.users=data.users||{};if(!data.users[u]){const salt=crypto.randomBytes(8).toString("hex");const passHash=sha256(salt+":"+p);data.users[u]={salt,passHash,created:new Date().toISOString()};await save(data);} }
+async function login(username,password){await ensureDefaultUser();const data=await load();const rec=data.users&&data.users[username];if(!rec)return null;const h=sha256(rec.salt+":"+password);if(h!==rec.passHash)return null;return await createSession(username);}
+module.exports={sha256,verifySession,login,ensureDefaultUser};
