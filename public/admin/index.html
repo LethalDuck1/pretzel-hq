@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pretzel HQ — Admin</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 128 128" width="34" height="34" fill="none">
+          <path d="M34 46c-6 0-11 5-11 11 0 15 17 18 26 12 6-4 9-12 13-18 3-4 7-7 12-7s9 3 12 7c4 6 7 14 13 18 9 6 26 3 26-12 0-6-5-11-11-11-8 0-13 7-18 12-6 6-12 10-22 10s-16-4-22-10c-5-5-10-12-18-12Z" stroke="var(--orange)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M49 78c-8 8-7 22 3 30 7 6 17 7 25 4 8 3 18 2 25-4 10-8 11-22 3-30" stroke="var(--blue)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brandtext">
+        <div class="title">Pretzel HQ</div>
+        <div class="sub">Admin Console • NBHS Assassin</div>
+      </div>
+    </div>
+    <nav class="topnav">
+      <a class="chip" href="/">Dashboard</a>
+      <button class="chip chip-ghost" id="logoutBtn" type="button">Logout</button>
+    </nav>
+  </header>
+
+  <!-- LOGIN GATE -->
+  <section id="loginGate" class="container">
+    <div class="card card-center">
+      <h1 class="h2">Admin Login</h1>
+      <p class="muted">Use your admin username + password. (This does not use Netlify Identity.)</p>
+      <div class="muted small" style="margin:10px 0 12px">Paste the Admin Key below to unlock the console.</div>
+      <hr class="hr" />
+      <details>
+        <summary class="muted">Legacy key login (optional)</summary>
+        <div class="grid2" style="margin-top:10px">
+          <label class="field">
+            <span>Admin Key</span>
+            <input id="key" placeholder="(optional)" />
+          </label>
+          <button class="btn" id="loginBtn" type="button">Verify key</button>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <main id="adminApp" class="container hidden">
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="side-title">Console</div>
+        <button class="side-btn is-active" data-tab="overview" type="button">Overview</button>
+        <button class="side-btn" data-tab="roster" type="button">Roster</button>
+        <button class="side-btn" data-tab="broadcast" type="button">Broadcast</button>
+        <button class="side-btn" data-tab="reviews" type="button">Reviews</button>
+        <button class="side-btn" data-tab="history" type="button">Notification Log</button>
+        <button class="side-btn" data-tab="analytics" type="button">Analytics</button>
+        <button class="side-btn" data-tab="settings" type="button">Settings</button>
+        <div class="side-foot">
+          <a class="muted link" href="https://instagram.com/nbhsassassin2026" target="_blank" rel="noreferrer">@nbhsassassin2026</a>
+          <div id="adminStatus" class="tiny muted">—</div>
+        </div>
+      </aside>
+
+      <section class="content">
+        <!-- OVERVIEW -->
+        <section class="tab" data-tabpanel="overview">
+          <div class="row row-between">
+            <div>
+              <h2 class="h2">Mission Control</h2>
+              <div class="muted">Quick status, queue health, and one-click tools.</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="load" type="button">Load State</button>
+              <button class="btn" id="seed" type="button">Seed Demo</button>
+              <button class="btn btn-danger" id="resetBtn" type="button">Reset Game</button>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi">
+              <div class="kpi-label">Total players</div>
+              <div class="kpi-value" id="kpiPlayers">—</div>
+              <div class="kpi-sub muted" id="kpiPlayersSub">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Teams</div>
+              <div class="kpi-value" id="kpiTeams">—</div>
+              <div class="kpi-sub muted" id="kpiTeamsSub">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Push enabled</div>
+              <div class="kpi-value" id="kpiPush">—</div>
+              <div class="kpi-sub muted" id="kpiPushSub">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Pending reviews</div>
+              <div class="kpi-value" id="kpiReviews">—</div>
+              <div class="kpi-sub muted" id="kpiReviewsSub">—</div>
+            </div>
+          </div>
+
+          <div class="grid2 gap">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <div class="h3">Queue</div>
+                  <div class="muted small">Newest review requests</div>
+                </div>
+                <button class="btn" id="refreshReviewsBtn" type="button">Refresh</button>
+              </div>
+              <div id="reviewMiniList" class="list"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <div class="h3">Quick Broadcast</div>
+                  <div class="muted small">Fast send without leaving this page</div>
+                </div>
+              </div>
+              <div class="grid2">
+                <label class="field">
+                  <span>Mode</span>
+                  <select id="pushMode">
+                    <option value="all">Everyone</option>
+                    <option value="team">Team</option>
+                    <option value="player">Player (DM)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Target</span>
+                  <select id="pushTarget"><option value="">—</option></select>
+                </label>
+              </div>
+              <label class="field">
+                <span>Title</span>
+                <input id="pushTitle" placeholder="e.g., Update" maxlength="60" />
+              </label>
+              <label class="field">
+                <span>Message</span>
+                <textarea id="pushBody" rows="4" placeholder="Write a short push message…"></textarea>
+              </label>
+              <div class="row row-between">
+                <div class="muted tiny">Tip: keep pushes short.</div>
+                <button class="btn btn-primary" id="pushSendBtn" type="button">Send</button>
+              </div>
+              <div id="pushResult" class="small muted" style="margin-top:10px"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ROSTER -->
+        <section class="tab hidden" data-tabpanel="roster">
+          <div class="row row-between">
+            <div>
+              <h2 class="h2">Roster & Status</h2>
+              <div class="muted">Teams, players, kills, and alive/out status.</div>
+            </div>
+            <div class="row">
+              <input id="playerSearch" class="input" placeholder="Search players…" />
+              <button class="btn" id="refreshBtn" type="button">Refresh Lists</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="h3">Power Tools</div>
+                <div class="muted small">Bulk add and quick cleanup.</div>
+              </div>
+            </div>
+            <div class="grid2 gap">
+              <div>
+                <label class="field">
+                  <span>Bulk add players (comma or new line)</span>
+                  <textarea id="bulkPlayers" rows="5" placeholder="Ava\nBen\nCody"></textarea>
+                </label>
+              </div>
+              <div>
+                <label class="field">
+                  <span>Bulk team</span>
+                  <select id="bulkTeam"><option value="">Pick a team…</option></select>
+                </label>
+                <button class="btn btn-primary" id="bulkAddBtn" type="button" style="margin-top:10px">Bulk Add</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid2 gap">
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Teams</div>
+                <div class="muted small">Create / rename / delete</div>
+              </div>
+              <label class="field"><span>New team</span><input id="newTeamName" placeholder="Team name" /></label>
+              <div class="row">
+                <button class="btn btn-primary" id="addTeamBtn" type="button">Create</button>
+              </div>
+              <label class="field"><span>Select team</span><select id="teamSelect"><option value="">—</option></select></label>
+              <div class="grid2">
+                <label class="field"><span>Rename team</span><input id="renameTeam" placeholder="New name" /></label>
+                <button class="btn" id="renameTeamBtn" type="button" style="align-self:end">Rename</button>
+              </div>
+              <div class="row row-between">
+                <div id="teamResult" class="small muted"></div>
+                <button class="btn btn-danger" id="deleteTeamBtn" type="button">Delete</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Players</div>
+                <div class="muted small">Add / rename / move / remove</div>
+              </div>
+              <div class="grid2">
+                <label class="field"><span>New player</span><input id="newPlayerName" placeholder="Player name" /></label>
+                <label class="field"><span>Assign team</span><select id="newPlayerTeam"><option value="">—</option></select></label>
+              </div>
+              <button class="btn btn-primary" id="addPlayerBtn" type="button">Add Player</button>
+              <hr class="hr" />
+              <label class="field"><span>Select player</span><select id="playerSelect"><option value="">—</option></select></label>
+              <div class="grid2">
+                <label class="field"><span>Rename player</span><input id="renamePlayer" placeholder="New player name" /></label>
+                <button class="btn" id="renamePlayerBtn" type="button" style="align-self:end">Rename</button>
+              </div>
+              <div class="grid2">
+                <label class="field"><span>Move to team</span><select id="moveTeam"><option value="">—</option></select></label>
+                <button class="btn" id="movePlayerBtn" type="button" style="align-self:end">Move</button>
+              </div>
+              <div class="row row-between">
+                <div id="playerResult" class="small muted"></div>
+                <button class="btn btn-danger" id="deletePlayerBtn" type="button">Remove Player</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="h3">Status + Kills</div>
+              <div class="muted small">Update a player instantly.</div>
+            </div>
+            <div class="grid3 gap">
+              <label class="field"><span>Player</span><select id="statusSelect"><option value="">—</option></select></label>
+              <label class="field"><span>Kills (set exact)</span><input id="killsSet" placeholder="e.g., 2" /></label>
+              <button class="btn" id="addKillBtn" type="button" style="align-self:end">Set Kills</button>
+            </div>
+            <div class="row row-between">
+              <button class="btn btn-primary" id="applyStatusBtn" type="button">Apply Status / Kills</button>
+              <div id="statusResult" class="small muted"></div>
+            </div>
+            <div id="logMsg" class="tiny muted" style="margin-top:10px"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div class="h3">Snapshot</div>
+              <div class="muted small">Raw state (for debugging)</div>
+            </div>
+            <pre id="snapshot" class="pre"></pre>
+          </div>
+        </section>
+
+        <!-- BROADCAST -->
+        <section class="tab hidden" data-tabpanel="broadcast">
+          <h2 class="h2">Broadcast</h2>
+          <div class="muted">Send pushes as Everyone / Team / DM, with tags and templates.</div>
+          <div class="grid2 gap" style="margin-top:16px">
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Composer</div>
+                <div class="muted small">Targeted sends</div>
+              </div>
+              <div class="grid2">
+                <label class="field">
+                  <span>Mode</span>
+                  <select id="bcMode">
+                    <option value="all">Everyone</option>
+                    <option value="team">Team</option>
+                    <option value="player">DM a player</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Target</span>
+                  <select id="bcTarget"><option value="">—</option></select>
+                </label>
+              </div>
+              <label class="field"><span>Title</span><input id="bcTitle" maxlength="60" placeholder="e.g., Reminder" /></label>
+              <label class="field"><span>Body</span><textarea id="bcBody" rows="6" placeholder="Message…"></textarea></label>
+              <div class="row row-between">
+                <div class="row">
+                  <label class="pill"><input type="checkbox" id="bcAlsoInbox" checked /> <span>Save to inbox</span></label>
+                </div>
+                <button class="btn btn-primary" id="bcSend" type="button">Send</button>
+              </div>
+              <div id="bcResult" class="small muted" style="margin-top:10px"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Templates</div>
+                <div class="muted small">One-tap fills</div>
+              </div>
+              <div class="template-list">
+                <button class="template" data-tpl="start">🚨 Game Starts</button>
+                <button class="template" data-tpl="rules">📜 Rule Reminder</button>
+                <button class="template" data-tpl="review">🎥 Review Needed</button>
+                <button class="template" data-tpl="update">🛰️ General Update</button>
+              </div>
+              <hr class="hr" />
+              <div class="muted tiny">Tip: Templates only fill your composer — nothing sends until you hit Send.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- REVIEWS -->
+        <section class="tab hidden" data-tabpanel="reviews">
+          <div class="row row-between">
+            <div>
+              <h2 class="h2">Review Queue</h2>
+              <div class="muted">Approve/deny requests. Track turnaround time automatically.</div>
+            </div>
+            <button class="btn" id="reviewsRefresh" type="button">Refresh</button>
+          </div>
+          <div class="grid2 gap" style="margin-top:16px">
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Pending</div>
+                <div class="muted small">Newest first</div>
+              </div>
+              <div id="reviewsList" class="list"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Decision</div>
+                <div class="muted small">Select a review to decide</div>
+              </div>
+              <div id="reviewFocus" class="muted">Pick a review from the list.</div>
+              <label class="field" style="margin-top:12px">
+                <span>Admin note (optional)</span>
+                <textarea id="reviewNote" rows="4" placeholder="Reason / clarifying note…"></textarea>
+              </label>
+              <div class="row">
+                <button class="btn btn-primary" id="reviewApprove" type="button" disabled>Approve</button>
+                <button class="btn btn-danger" id="reviewDeny" type="button" disabled>Deny</button>
+              </div>
+              <div id="reviewResult" class="small muted" style="margin-top:10px"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HISTORY -->
+        <section class="tab hidden" data-tabpanel="history">
+          <div class="row row-between">
+            <div>
+              <h2 class="h2">Notification Log</h2>
+              <div class="muted">Proof that messages were sent + what players can re-open.</div>
+            </div>
+            <button class="btn" id="mhRefresh" id="mhRefresh" type="button">Refresh</button>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-head">
+              <div class="h3">Latest</div>
+              <div class="muted small">Up to ~300 recent entries</div>
+            </div>
+            <div id="mhList" class="list"></div>
+          </div>
+        </section>
+
+        <!-- ANALYTICS -->
+        <section class="tab hidden" data-tabpanel="analytics">
+          <div class="row row-between">
+            <div>
+              <h2 class="h2">Analytics</h2>
+              <div class="muted">Everything we can measure in a privacy-respecting way.</div>
+            </div>
+            <button class="btn" id="statsRefresh" type="button">Refresh</button>
+          </div>
+          <div class="grid2 gap" style="margin-top:16px">
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">KPIs</div>
+                <div class="muted small">Live counters</div>
+              </div>
+              <div class="kpi-grid kpi-grid-2">
+                <div class="kpi"><div class="kpi-label">Players logged in</div><div class="kpi-value" id="statLogins">—</div><div class="kpi-sub muted" id="statLoginsSub">—</div></div>
+                <div class="kpi"><div class="kpi-label">Push enabled</div><div class="kpi-value" id="statPush">—</div><div class="kpi-sub muted" id="statPushSub">—</div></div>
+                <div class="kpi"><div class="kpi-label">Avg review time</div><div class="kpi-value" id="statReviewAvg">—</div><div class="kpi-sub muted" id="statReviewAvgSub">—</div></div>
+                <div class="kpi"><div class="kpi-label">Reviews today</div><div class="kpi-value" id="statReviewsToday">—</div><div class="kpi-sub muted" id="statReviewsTodaySub">—</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Charts</div>
+                <div class="muted small">Local-only rendering (no trackers)</div>
+              </div>
+              <canvas id="chart1" height="160" style="width:100%"></canvas>
+              <div class="muted tiny" style="margin-top:10px">Shows review decisions last 7 days + pushes sent.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="tab hidden" data-tabpanel="settings">
+          <h2 class="h2">Settings</h2>
+          <div class="muted">Join codes, exports, and safe testing tools.</div>
+          <div class="grid2 gap" style="margin-top:16px">
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Join Codes</div>
+                <div class="muted small">Generate player codes</div>
+              </div>
+              <label class="field"><span>How many</span><input id="codeCount" placeholder="e.g., 50" /></label>
+              <button class="btn btn-primary" id="genCodesBtn" type="button">Generate</button>
+              <pre id="codesOut" class="pre" style="max-height:220px;overflow:auto"></pre>
+              <div class="muted tiny">Share codes privately. Players use them on the Player page.</div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="h3">Backup</div>
+                <div class="muted small">Export/Import JSON</div>
+              </div>
+              <div class="row">
+                <button class="btn" id="exportBtn" type="button">Export JSON</button>
+                <label class="btn" style="cursor:pointer">
+                  Import JSON
+                  <input id="importFile" type="file" accept="application/json" style="display:none" />
+                </label>
+              </div>
+              <div id="backupMsg" class="small muted" style="margin-top:10px"></div>
+              <hr class="hr" />
+              <div class="muted tiny">Import overwrites state. Export first.</div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
