@@ -1,0 +1,91 @@
+const API={login:"/.netlify/functions/playerLogin",me:"/.netlify/functions/playerMe",submit:"/.netlify/functions/submitReview",myReviews:"/.netlify/functions/playerReviews",inbox:"/.netlify/functions/playerInbox",getVapid:"/.netlify/functions/getVapidPublicKey",sub:"/.netlify/functions/subscribePush",unsub:"/.netlify/functions/unsubscribePush",};function $(id){return document.getElementById(id);}function toast(msg){const el=$("rvMsg");if(el){el.textContent=msg;}else{alert(msg);}}function token(){return localStorage.getItem("pretzel_player_token")|| "";}function setToken(t){if(t)localStorage.setItem("pretzel_player_token",t);else localStorage.removeItem("pretzel_player_token");}async function jfetch(url,opts={}){const res=await fetch(url,{...opts,headers:{"content-type":"application/json",...(opts.headers||{})}});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.detail || data.error || "Request failed");return data;}async function loadMe(){const t=token();if(!t)return null;return await jfetch(API.me,{headers:{"x-player-token":t}});}function b64ToUint8(base64String){const padding='='.repeat((4-base64String.length % 4)% 4);const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');const raw=atob(base64);const out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}async function enablePush(tags){if(!("serviceWorker" in navigator)|| !("PushManager" in window))throw new Error("Push not supported");const perm=await Notification.requestPermission();if(perm !=="granted")throw new Error("Notifications blocked");const reg=await navigator.serviceWorker.ready;const pub=(await jfetch(API.getVapid,{cache:"no-store"})).publicKey;const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(pub)});await jfetch(API.sub,{method:"POST",body:JSON.stringify({subscription:sub,tags})});return true;}async function disablePush(){const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(sub){await jfetch(API.unsub,{method:"POST",body:JSON.stringify({endpoint:sub.endpoint})});await sub.unsubscribe();}}function escapeHtml(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}function renderRequests(items){const box=$("rvList");if(!box)return;if(!items || !items.length){box.innerHTML=`<div class="smallnote">No requests yet.</div>`;return;}box.innerHTML=items.map(r=>`<div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="font-weight:800;">${escapeHtml(r.title||"Request")}</div><div class="smallnote">${escapeHtml(r.status||"pending").toUpperCase()}• ${escapeHtml((r.ts||"").slice(0,16).replace("T"," "))}</div>${r.adminNote ? `<div class="smallnote" style="margin-top:6px;">Admin:${escapeHtml(r.adminNote)}</div>`:``}</div>`).join("");}async function refreshReviews(){try{const t=token();if(!t)return;const data=await jfetch(API.myReviews,{headers:{"x-player-token":t}});renderRequests(data.items || []);}catch{}}async function init(){if("serviceWorker" in navigator){try{await navigator.serviceWorker.register("/sw.js");}catch{}}$("helpBtn")?.addEventListener("click",()=>{alert("You get your join code from your team captain or an admin. It looks like PZ-XXXXX.");});$("logoutBtn")?.addEventListener("click",()=>{setToken("");location.reload();});$("loginBtn")?.addEventListener("click",async()=>{try{const code=($("joinCode")?.value || "").trim().toUpperCase();const pin=($("pin")?.value || "").trim();if(!code)return alert("Enter your join code.");if(!/^\d{4,12}$/.test(pin))return alert("PIN must be 4–12 digits.");const data=await jfetch(API.login,{method:"POST",body:JSON.stringify({code,pin})});setToken(data.token);await bootLoggedIn();}catch(e){alert(e.message || "Login failed");}});const me=await loadMe();if(me)await bootLoggedIn(me);}async function bootLoggedIn(me=null){if(!me)me=await loadMe();if(!me)return;$("loginPanel").style.display="none";$("mePanel").style.display="";$("logoutBtn").style.display="";$("meNote").textContent=me.player?.name ? `Logged in as ${me.player.name}`:"Logged in";$("meStatus").textContent=String(me.player?.status || "alive").toUpperCase();$("meKills").textContent=String(me.player?.kills ?? 0);const pid=me.player?.id;const tid=me.player?.teamId;function currentPref(){const el=document.querySelector('input[name="pref"]:checked');return el ? el.value:"dm";}document.getElementById("enablePush")?.addEventListener("click",async()=>{try{const pref=currentPref();if(pref==="team" && !tid)return toast("No team assigned yet.");const tags=[];tags.push(`player:${pid}`);if(pref==="team")tags.push(`team:${tid}`);if(pref==="all")tags.push("all",`team:${tid}`);await enablePush(tags.filter(Boolean));toast("Notifications enabled ✅");await refreshInbox();}catch(e){toast(e.message || "Failed");}});document.getElementById("disablePush")?.addEventListener("click",async()=>{try{await disablePush();toast("Notifications disabled.");}catch(e){toast(e.message||"Failed");}});try{await enablePush(["all",`player:${pid}`].concat(tid? [`team:${tid}`]:[]));toast("Notifications enabled ✅");}catch(e){toast(e.message || "Failed");}});try{if(!tid)return toast("No team assigned yet.");await enablePush(["all",`team:${tid}`]);toast("Team notifications enabled ✅");}catch(e){toast(e.message || "Failed");}});$("disablePush")?.addEventListener("click",async()=>{try{await disablePush();toast("Notifications disabled.");}catch(e){toast(e.message||"Failed");}});$("rvSubmit")?.addEventListener("click",async()=>{try{const title=($("rvTitle")?.value || "").trim()|| "Review Request";const details=($("rvDetails")?.value || "").trim();const link=($("rvLink")?.value || "").trim();if(details.length<10)return toast("Add a little more detail.");await jfetch(API.submit,{method:"POST",headers:{"x-player-token":token()},body:JSON.stringify({title,details,link})});$("rvTitle").value="";$("rvDetails").value="";$("rvLink").value="";toast("Submitted ✅");document.getElementById("inboxRefresh")?.addEventListener("click",refreshInbox);document.getElementById("markRead")?.addEventListener("click",()=>{setReadTs(new Date().toISOString());refreshInbox();});await refreshInbox();await refreshReviews();}catch(e){toast(e.message || "Failed");}});document.getElementById("inboxRefresh")?.addEventListener("click",refreshInbox);document.getElementById("markRead")?.addEventListener("click",()=>{setReadTs(new Date().toISOString());refreshInbox();});await refreshInbox();await refreshReviews();}init();function inboxReadKey(){return "pretzel_inbox_read_ts";}function getReadTs(){return localStorage.getItem(inboxReadKey())|| "";}function setReadTs(ts){localStorage.setItem(inboxReadKey(),ts || new Date().toISOString());}function renderInbox(items){const box=document.getElementById("inboxList"),note=document.getElementById("inboxNote");if(!box)return;__inboxItems=items||[];const lastRead=getReadTs(),lastReadMs=lastRead?new Date(lastRead).getTime():0;const u={all:0,dm:0,team:0,ann:0};for(const it of __inboxItems){const t=new Date(it.ts||0).getTime();if(Number.isFinite(t)&&t>lastReadMs){u.all++;u[kindOf(it)]=(u[kindOf(it)]||0)+1;}}const sd=(id,on)=>{const el=document.getElementById(id);if(el)el.style.display=on?"inline-block":"none";};sd("dotAll",u.all>0);sd("dotDM",u.dm>0);sd("dotTeam",u.team>0);sd("dotAnn",u.ann>0);if(note)note.textContent=u.all?`${u.all} new`:"All caught up";const view=__inboxItems.filter(passesTab).filter(passesSearch);if(!view.length){box.innerHTML=`<div class="smallnote">No messages here.</div>`;return;}box.innerHTML=view.map(m=>{const t=String(m.ts||"").slice(0,16).replace("T"," ");const isNew=new Date(m.ts||0).getTime()>lastReadMs;const badge=isNew?` <span style="font-size:12px;color:rgba(255,209,102,.95);">NEW</span>`:"";const tag=kindOf(m).toUpperCase();return `<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.08);"><div style="display:flex;justify-content:space-between;gap:10px;"><div style="font-weight:900;">${escapeHtml(m.title||"Pretzel HQ")}${badge}</div><div class="smallnote">${escapeHtml(t)}</div></div><div class="smallnote" style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(m.message||"")}</div><div class="smallnote" style="margin-top:8px;opacity:.75;">${tag}</div></div>`;}).join("");}async function refreshInbox(){async function refreshInbox(){try{const t=token();if(!t)return;const data=await jfetch(API.inbox,{headers:{"x-player-token":t},cache:"no-store"});renderInbox(data.items || []);}catch(e){}}let __inboxTab="all",__inboxItems=[];function setTab(t){__inboxTab=t;document.getElementById("tabAll")?.classList.toggle("active",t==="all");document.getElementById("tabDM")?.classList.toggle("active",t==="dm");document.getElementById("tabTeam")?.classList.toggle("active",t==="team");document.getElementById("tabAnn")?.classList.toggle("active",t==="ann");renderInbox(__inboxItems);}function kindOf(m){const k=String(m.kind||"").toLowerCase();return k==="dm"?"dm":k==="team"?"team":k==="announce"?"ann":"all";}function passesTab(m){return __inboxTab==="all"||kindOf(m)===__inboxTab;}function passesSearch(m){const q=(document.getElementById("inboxSearch")?.value||"").trim().toLowerCase();return !q||String(m.title||"").toLowerCase().includes(q)||String(m.message||"").toLowerCase().includes(q);}
+
+/* ---- A2HS helper (mobile only, one-time) ---- */
+(function(){
+  try{
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+    if(!isMobile) return;
+
+    const isStandalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || (navigator.standalone === true);
+    if(isStandalone) return;
+
+    const KEY = "pretzel_a2hs_dismiss_v1";
+    if(localStorage.getItem(KEY)==="1") return;
+
+    let deferredPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e)=>{
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    function makeBanner(){
+      const b=document.createElement("div");
+      b.setAttribute("style",
+        "position:fixed;left:14px;right:14px;bottom:14px;z-index:9999;"+
+        "border:1px solid rgba(255,255,255,.12);border-radius:18px;"+
+        "background:rgba(0,0,0,.55);backdrop-filter: blur(14px);"+
+        "padding:12px 12px 10px;box-shadow:0 14px 40px rgba(0,0,0,.45);"+
+        "color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;"
+      );
+      b.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="font-weight:800;letter-spacing:.2px;">Add Pretzel HQ to Home Screen</div>
+          <button id="a2hs_x" style="all:unset;cursor:pointer;color:var(--muted);font-size:18px;padding:4px 8px;">✕</button>
+        </div>
+        <div style="margin-top:6px;color:var(--muted);font-size:13px;line-height:1.35;">
+          Faster launch + notifications work best when it's installed like an app.
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button id="a2hs_install" style="flex:1;cursor:pointer;border-radius:14px;padding:10px 12px;border:1px solid rgba(255,209,102,.35);background:rgba(255,209,102,.12);color:var(--text);font-weight:800;">Install</button>
+          <button id="a2hs_hide" style="cursor:pointer;border-radius:14px;padding:10px 12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:var(--muted);font-weight:700;">Not now</button>
+        </div>
+        <div id="a2hs_steps" style="display:none;margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;color:var(--muted);font-size:13px;line-height:1.35;"></div>
+      `;
+      document.body.appendChild(b);
+
+      const stepsEl=b.querySelector("#a2hs_steps");
+
+      function showIOSSteps(){
+        // Safari iOS: no real install prompt
+        stepsEl.style.display="block";
+        stepsEl.innerHTML = `
+          <div style="color:var(--text);font-weight:800;margin-bottom:6px;">iPhone / iPad</div>
+          <div>1) Tap the <b>Share</b> button (square with arrow)</div>
+          <div>2) Scroll and tap <b>Add to Home Screen</b></div>
+          <div>3) Tap <b>Add</b></div>
+        `;
+      }
+
+      b.querySelector("#a2hs_x").onclick=()=>{ localStorage.setItem(KEY,"1"); b.remove(); };
+      b.querySelector("#a2hs_hide").onclick=()=>{ localStorage.setItem(KEY,"1"); b.remove(); };
+      b.querySelector("#a2hs_install").onclick=async()=>{
+        const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+        if(isiOS && !deferredPrompt){
+          showIOSSteps();
+          return;
+        }
+        if(!deferredPrompt){
+          // Android Chrome should have it, but if not, show generic steps
+          stepsEl.style.display="block";
+          stepsEl.innerHTML = `
+            <div style="color:var(--text);font-weight:800;margin-bottom:6px;">Android</div>
+            <div>1) Tap the <b>⋮</b> menu</div>
+            <div>2) Tap <b>Install app</b> or <b>Add to Home screen</b></div>
+          `;
+          return;
+        }
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice.catch(()=>null);
+        deferredPrompt = null;
+        localStorage.setItem(KEY,"1");
+        b.remove();
+      };
+
+      // auto-hide after a bit
+      setTimeout(()=>{ if(document.body.contains(b)){ b.style.opacity="0"; setTimeout(()=>b.remove(),350); } }, 18000);
+    }
+
+    // show after first paint
+    window.addEventListener("load", ()=> setTimeout(makeBanner, 1200), { once:true });
+  }catch(_e){}
+})();
