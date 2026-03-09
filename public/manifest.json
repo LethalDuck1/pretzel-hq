@@ -1,9 +1,0 @@
-{
-  "name": "Pretzel HQ",
-  "short_name": "PretzelHQ",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0a1020",
-  "theme_color": "#ff7a18",
-  "icons": []
-}
